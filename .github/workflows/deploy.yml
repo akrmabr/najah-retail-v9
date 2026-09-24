@@ -17,14 +17,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract source
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Find and extract source ZIP
         run: |
-          mkdir project
-          unzip -q najah-v9-production-upgrade-source.zip -d project
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "لم يتم العثور على ملف ZIP في جذر المستودع."
+            exit 1
+          fi
+
+          echo "Using archive: $ZIP_FILE"
+          mkdir -p project
+          unzip -q "$ZIP_FILE" -d project
+
+          if [ ! -f project/package.json ]; then
+            SOURCE_DIR=$(find project -mindepth 1 -maxdepth 2 -name package.json -printf "%h\n" | head -n 1)
+
+            if [ -n "$SOURCE_DIR" ]; then
+              cp -a "$SOURCE_DIR"/. project/
+            fi
+          fi
+
+          if [ ! -f project/package.json ]; then
+            echo "لم يتم العثور على package.json داخل الحزمة."
+            exit 1
+          fi
 
       - name: Install dependencies
         working-directory: project
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Build application
         working-directory: project
